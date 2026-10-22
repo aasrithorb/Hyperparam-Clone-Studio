@@ -1,5 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUpRight, Menu, ShieldCheck, KeyRound, RotateCw } from 'lucide-react';
+import { DashboardVisual } from './components/dashboard-visual';
+import { HeroAgentStatus } from './components/hero-agent-status';
+import './hero-motion.css';
 
 const formUrl = 'https://form.typeform.com/to/blVyabUs';
 const navItems = [['Problem', '#problem'], ['Workflow', '#workflow'], ['Approach', '#approach'], ['Infrastructure', '#infrastructure'], ['FAQ', '#faq']];
@@ -18,6 +21,80 @@ const stages = [
   ['6', 'Evaluate', 'Measure candidates against the requirement. Results stay visible before anything advances.'],
   ['7', 'Deploy', 'Package an approved model into a usable service with scoped access and a controlled rollout.'],
   ['8', 'Improve', 'Monitor outcomes and feed new evidence back into the next iteration.'],
+];
+type WorkflowPanelContent = {
+  projectPath: string;
+  title: string;
+  prompt: string;
+  constraints: string[];
+  details: Array<[string, string]>;
+  questions: string[];
+};
+const workflowPanels: WorkflowPanelContent[] = [
+  {
+    projectPath: 'objective',
+    title: 'Objective',
+    prompt: 'Flag likely lung abnormalities in chest X-rays so radiologists can prioritise their review queue.',
+    constraints: ['Runs inside hospital VPC', 'p50 latency under 500 ms', 'Assistive only, never auto-diagnoses'],
+    details: [['Task', 'Multi-label image classification'], ['Output', 'Findings + confidence, routed to review'], ['Metric that matters', 'Sensitivity on held-out hospital data']],
+    questions: ['How many hospital images carry radiologist-confirmed labels?', 'Are all findings in scope, or a priority subset?'],
+  },
+  {
+    projectPath: 'plan',
+    title: 'Plan',
+    prompt: 'Turn the objective into ordered work, with dependencies and approval gates visible before execution starts.',
+    constraints: ['Data before training', 'Evaluation before deployment', 'Human approval at each gate'],
+    details: [['Sequence', 'Data → approach → train → evaluate → deploy'], ['Dependency', 'Training waits for a validated dataset'], ['Approval gate', 'A person signs off before deployment']],
+    questions: ['Who approves access to production?', 'What should happen if a quality gate is missed?'],
+  },
+  {
+    projectPath: 'data/chest-xray-v1',
+    title: 'Data',
+    prompt: 'Prepare the ChestX-ray dataset with label, provenance and split checks attached to the project.',
+    constraints: ['12,400 images', 'Labels reviewed', 'Hospital-held-out validation'],
+    details: [['Source', 'ChestX-ray v1'], ['Preparation', 'Deduplicate and validate labels'], ['Split strategy', 'Hold out hospital sites for evaluation']],
+    questions: ['Are labels confirmed by a radiologist?', 'Which patient identifiers must be removed?'],
+  },
+  {
+    projectPath: 'approach/shortlist',
+    title: 'Approach',
+    prompt: 'Compare candidate approaches against sensitivity, latency, privacy and operating cost.',
+    constraints: ['Compare more than one path', 'Measure on held-out data', 'Keep the decision traceable'],
+    details: [['Candidates', 'Existing vision model · PEFT / LoRA'], ['Quality target', 'Sensitivity on held-out hospital data'], ['Operational target', 'p50 latency under 500 ms']],
+    questions: ['Does an existing vision model meet the sensitivity target?', 'Is fine-tuning allowed inside the hospital VPC?'],
+  },
+  {
+    projectPath: 'train/run-3',
+    title: 'Train',
+    prompt: 'Run reproducible experiments with configuration, compute, loss and checkpoints attached.',
+    constraints: ['Run 2 / 5', '78% GPU utilisation', '18,400 / 50,000 steps'],
+    details: [['Elapsed time', '48 min'], ['Training loss', '0.213 · decreasing'], ['Checkpoint', 'ckpt-18400 saved']],
+    questions: ['Does this run improve sensitivity?', 'Is the remaining compute within the project budget?'],
+  },
+  {
+    projectPath: 'evaluation/held-out-site',
+    title: 'Evaluate',
+    prompt: 'Compare the candidate with the objective on held-out hospital data before anything advances.',
+    constraints: ['92.6% accuracy', 'Sensitivity gate required', 'Results tied to run-3'],
+    details: [['Latest result', 'Evaluation completed'], ['Latency', '410 ms p50'], ['Decision', 'Awaiting human review']],
+    questions: ['Did the candidate meet the required sensitivity?', 'Are there failure cases that need review?'],
+  },
+  {
+    projectPath: 'deployment/canary',
+    title: 'Deploy',
+    prompt: 'Package an approved model for the hospital VPC with a controlled rollout and rollback path.',
+    constraints: ['Hospital VPC', 'Canary rollout', 'Approval required'],
+    details: [['Service', 'Internal review API'], ['Current state', 'Canary waits on approval'], ['Rollback', 'Previous model remains available']],
+    questions: ['Who can approve the production release?', 'What canary threshold should stop the rollout?'],
+  },
+  {
+    projectPath: 'monitoring/feedback',
+    title: 'Improve',
+    prompt: 'Keep outcomes, drift signals and feedback connected to the next experiment.',
+    constraints: ['Monitor real outcomes', 'Track model versions', 'Feed findings into the next run'],
+    details: [['Signal', 'Sensitivity and review feedback'], ['Lineage', 'Model → config → data → evaluation'], ['Next step', 'Create an experiment from new evidence']],
+    questions: ['How often should performance be reviewed?', 'Which outcomes should trigger a new evaluation?'],
+  },
 ];
 const approachChoices = [
   ['Prompting', 'An existing model with carefully designed instructions and evaluation.', 'Clear instructions, eval set'],
@@ -49,25 +126,6 @@ function Header() {
   </div></header>;
 }
 
-function DashboardVisual() {
-  return <div className="workspace" data-testid="visual-workspace">
-    <div className="laptop"><div className="screen">
-      <aside className="dash-sidebar"><div className="dash-logo">H　 hyperparameter</div>{['⌂　 Home', '▧　 Projects', '▤　 Datasets', '◇　 Models', '⌁　 Experiments', '▥　 Evaluations', '⌘　 Integrations', '♙　 Team', '⚙　 Settings'].map((t, i) => <div className={`dash-nav ${i === 0 ? 'active' : ''}`} key={t}>{t}</div>)}</aside>
-      <main className="dash-main"><div className="dash-head"><div><div className="dash-muted">⌕　Search projects, datasets, models...</div><h3 style={{ marginTop: 16 }}>Good evening, Aasrith</h3><span className="dash-muted">Turn your ideas into real AI systems.</span></div><span className="new-project">＋ New project</span></div>
-        <div className="stats">{[['Projects', '6'], ['Datasets', '12'], ['Models', '5'], ['Compute hours', '428']].map(([a, b]) => <div className="stat" key={a}>{a}<strong>{b}</strong></div>)}</div>
-        <div className="project-card"><div className="project-top"><b>▣　Current Project</b><span className="dash-muted">Edit　● Training</span></div><div className="project-name"><div className="project-thumb" /><div><b>Medical Vision Model</b><div className="dash-muted">A domain-specific model for detecting lung abnormalities in chest X-rays.</div></div></div>
-          <div className="steps"><b>① Idea</b><b>② Data</b><b>③ Model</b><b>④ Train</b><span>⑤ Evaluate</span><span>⑥ Deploy</span></div>
-          <div className="chartbox"><b>Training metrics　　Loss</b><div className="chartline" /></div>
-        </div>
-      </main>
-      <aside className="activity"><h4>Recent activity</h4>{['Training run #3 started', 'Dataset ‘ChestX-ray v1’ added', 'Evaluation completed', 'New model version saved', 'Deployment configured'].map((t, i) => <div className="activity-item" key={t}><span className="activity-dot">{['▶', '▤', '▥', '◇', '⌘'][i]}</span><span>{t}<br /><small className="dash-muted">{i + 1} hours ago</small></span></div>)}<h4 style={{ marginTop: 18 }}>Datasets</h4><div className="activity-item">▤　ChestX-ray v1</div></aside>
-    </div><div className="laptop-base" /></div>
-    <div className="callout c1"><b>01 Pipeline state</b>Idea → Data → Model → Train → Evaluate → Deploy, tracked per project</div>
-    <div className="callout c2"><b>02 Run context</b>Steps, GPU utilisation and loss stay attached to the run</div>
-    <div className="callout c3"><b>03 Evaluation</b>Latest eval sits next to the run that produced it</div>
-  </div>;
-}
-
 function Ticker() {
   const words = ['Problem definition', 'Data preparation', 'Approach selection', 'Experimentation', 'Training', 'Evaluation', 'Deployment', 'Monitoring', 'Improvement'];
   return <div className="ticker" aria-label="Engineering workflow ticker"><div className="ticker-track">{[0, 1].map(n => <div className="ticker-group" key={n} style={{ display: 'flex' }}>{words.map((w) => <span className="ticker-item" key={`${n}-${w}`}>{w}<i>→</i></span>)}</div>)}</div></div>;
@@ -96,31 +154,166 @@ function Thesis() {
 
 function Workflow() {
   const [active, setActive] = useState(0);
-  return <section className="section" id="workflow" data-testid="section-workflow"><div className="wrap"><div className="section-head"><span>03</span> How it's intended to work</div><h2 className="workflow-title">One outcome. An agent on every stage.</h2><p className="workflow-sub">Follow one example project, the Medical Vision Model from the workspace above, through each stage Hyperparameter is being designed to coordinate.</p>
-    <div className="workflow-layout"><div className="stage-list" role="tablist" aria-label="Workflow stages">{stages.map(([n, title], i) => <button type="button" className="stage-item" key={n} role="tab" aria-selected={active === i} onClick={() => setActive(i)} data-testid={`stage-${n}`}><b>{n.padStart(2, '0')}</b>{title}</button>)}</div>
-      <div className="objective-card" role="tabpanel"><div className="objective-top"><span>medical-vision-model/{stages[active][1].toLowerCase()}</span><div className="chips"><span className="chip">Interpreted</span><span className="chip">Illustrative</span></div></div><h3>{active === 0 ? 'Objective' : stages[active][1]}</h3><p className="quote">{active === 0 ? 'Flag likely lung abnormalities in chest X-rays so radiologists can prioritise their review queue.' : stages[active][2]}</p>
-        <div className="constraint-list"><span>Runs inside hospital VPC</span><span>p50 latency under 500 ms</span><span>Assistive only, never auto-diagnoses</span></div>
-        <div className="objective-bottom"><div><h4>Interpreted as</h4><div className="detail-row"><strong>Task —</strong> Multi-label image classification</div><div className="detail-row"><strong>Output —</strong> Findings + confidence, routed to review</div><div className="detail-row"><strong>Metric that matters —</strong> Sensitivity on held-out hospital data</div></div><div><h4>Missing information</h4><div className="detail-row">How many hospital images carry radiologist-confirmed labels?</div><div className="detail-row">Are all findings in scope, or a priority subset?</div></div></div>
-      </div></div></div></section>;
+  const [sectionVisible, setSectionVisible] = useState(false);
+  const [pointerInside, setPointerInside] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const paused = pointerInside || focusWithin;
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setSectionVisible(entry.isIntersecting),
+      { threshold: 0.25 },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (
+      !sectionVisible ||
+      paused ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setActive((current) => (current + 1) % stages.length);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, [sectionVisible, paused]);
+
+  const panel = workflowPanels[active];
+
+  return (
+    <section
+      ref={sectionRef}
+      className="section"
+      id="workflow"
+      data-testid="section-workflow"
+    >
+      <div className="wrap">
+        <div className="section-head"><span>03</span> How it's intended to work</div>
+        <h2 className="workflow-title">One outcome. An agent on every stage.</h2>
+        <p className="workflow-sub">
+          Follow one example project, the Medical Vision Model from the workspace above, through each stage Hyperparameter is being designed to coordinate.
+        </p>
+        <div
+          className="workflow-layout"
+          onMouseEnter={() => setPointerInside(true)}
+          onMouseLeave={() => setPointerInside(false)}
+          onFocusCapture={() => setFocusWithin(true)}
+          onBlurCapture={(event) => {
+            const nextFocus = event.relatedTarget;
+            if (!(nextFocus instanceof Node) || !event.currentTarget.contains(nextFocus)) {
+              setFocusWithin(false);
+            }
+          }}
+        >
+          <div className="stage-list" role="tablist" aria-label="Workflow stages">
+            {stages.map(([number, title, description], index) => (
+              <button
+                type="button"
+                id={`stage-tab-${number}`}
+                className={`stage-item ${index < active ? 'is-complete' : index === active ? 'is-current' : 'is-upcoming'}`}
+                key={number}
+                role="tab"
+                aria-selected={active === index}
+                aria-controls="workflow-panel"
+                tabIndex={active === index ? 0 : -1}
+                onClick={() => setActive(index)}
+                onKeyDown={(event) => {
+                  if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) return;
+                  event.preventDefault();
+                  const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+                  const nextIndex = (index + direction + stages.length) % stages.length;
+                  setActive(nextIndex);
+                  document.getElementById(`stage-tab-${stages[nextIndex][0]}`)?.focus();
+                }}
+                data-testid={`stage-${number}`}
+              >
+                <span className="stage-number">{number}</span>
+                <span className="stage-copy">
+                  <span className="stage-name">{title}</span>
+                  {active === index && <small>{description}</small>}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div
+            key={active}
+            className="objective-card workflow-panel-swap"
+            id="workflow-panel"
+            role="tabpanel"
+            aria-labelledby={`stage-tab-${stages[active][0]}`}
+          >
+            <div className="objective-top">
+              <span className="objective-path"><b>H</b> medical-vision-model / {panel.projectPath}</span>
+              <div className="chips"><span className="chip">Interpreted</span><span className="chip">Illustrative</span></div>
+            </div>
+            <div className="objective-form">
+              <label className="field-label" htmlFor="workflow-objective">{panel.title}</label>
+              <textarea id="workflow-objective" className="objective-input" rows={2} readOnly value={panel.prompt} />
+              <div className="constraint-list">
+                {panel.constraints.map((constraint) => <span key={constraint}>{constraint}</span>)}
+              </div>
+            </div>
+            <div className="objective-bottom">
+              <div>
+                <h4>Interpreted as</h4>
+                {panel.details.map(([label, value]) => (
+                  <div className="detail-row" key={label}><span>{label}</span><strong>{value}</strong></div>
+                ))}
+              </div>
+              <div>
+                <h4>Missing information</h4>
+                <div className="missing-list">
+                  {panel.questions.map((question) => <div className="missing-question" key={question}><span aria-hidden="true">!</span>{question}</div>)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Approach() {
   const prompts = ['A capable existing model already does the task with good instructions', 'Answers depend on private or frequently changing documents', 'You have labelled examples of the behaviour you want', 'The domain or output format differs substantially from general models', 'Latency or cost per request is a hard constraint', 'Requests vary widely in difficulty'];
+  const [selectedPrompts, setSelectedPrompts] = useState<number[]>([4]);
+  const [hoveredPrompt, setHoveredPrompt] = useState<number | null>(null);
+  const approachForPrompt = [0, 1, 2, 3, 4, 5];
+  const recommended = new Set([
+    ...selectedPrompts.map((index) => approachForPrompt[index]),
+    ...(hoveredPrompt === null ? [] : [approachForPrompt[hoveredPrompt]]),
+  ]);
+
   return <section className="section approach" id="approach" data-testid="section-approach"><div className="wrap"><div className="section-head"><span>04</span> Approach selection</div><h2>Not every problem needs<br />a new model.</h2><p className="body-copy" style={{ maxWidth: 670 }}>The right approach depends on the objective, the data you have, quality targets, latency, cost, privacy and where it has to run. Hyperparameter is being built to help navigate that decision, then coordinate whichever path it leads to.</p>
-    <div className="approach-layout"><div><div className="objective-top"><strong>What's true of your problem?</strong><span className="chip">Illustrative</span></div><div className="prompt-list">{prompts.map((p, i) => <div className="prompt" key={p} data-testid={`approach-prompt-${i}`}>{p}</div>)}</div></div>
-      <div><div className="choices">{approachChoices.map(([title, desc, needs, worth]) => <article className="choice" key={title}><h3>{title}{worth && <span className="worth">{worth}</span>}</h3><p>{desc}</p><span className="needs">needs · {needs}</span></article>)}</div><p className="simplified">A simplified heuristic for illustration. In practice these options combine, and the final call is made by evaluating candidates against your requirement.</p></div></div></div></section>;
+    <div className="approach-layout"><div className="prompt-panel"><div className="objective-top"><strong>What's true of your problem?</strong><span className="chip">Illustrative</span></div><div className="prompt-list" role="group" aria-label="Conditions that shape the AI approach">{prompts.map((p, i) => {
+      const selected = selectedPrompts.includes(i);
+      return <button type="button" className={`prompt${selected ? ' is-selected' : ''}`} key={p} aria-pressed={selected} onClick={() => setSelectedPrompts((current) => selected ? current.filter((index) => index !== i) : [...current, i])} onMouseEnter={() => setHoveredPrompt(i)} onMouseLeave={() => setHoveredPrompt(null)} data-testid={`approach-prompt-${i}`}><span className="prompt-check" aria-hidden="true">{selected ? '✓' : ''}</span><span>{p}</span></button>;
+    })}</div></div>
+      <div><div className="choices">{approachChoices.map(([title, desc, needs, worth], index) => <article className={`choice${recommended.has(index) ? ' is-recommended' : ''}`} key={title}><h3>{title}{worth && <span className="worth">{worth}</span>}</h3><p>{desc}</p><span className="needs">needs · {needs}</span></article>)}</div><p className="simplified">A simplified heuristic for illustration. In practice these options combine, and the final call is made by evaluating candidates against your requirement.</p></div></div></div></section>;
 }
 
 function Infrastructure() {
   const panels: [string, string, ReactNode][] = [
-    ['Compute provisioning', "Training and serving have different GPU and memory profiles. Resources are allocated to the job, not to a person's console tab.", <div className="code-list"><div><span className="state-dot" />train · run-2 <span style={{ float: 'right' }}>A100 · 80GB</span></div><div><span className="state-dot" />eval · regression</div><div><span className="state-dot" />serve · canary</div><div>idle</div></div>],
-    ['Scheduling', 'Jobs run when their dependencies are satisfied.', <div className="code-list"><div>01　data/dedupe <span style={{ color: '#55a883' }}>done</span></div><div>02　train/run-2 <span style={{ color: '#5148e7' }}>running</span></div><div>03　eval/regression queued</div><div>04　serve/canary waits on gate</div></div>],
-    ['Artifacts & lineage', 'Every model version traces back to its config, data and evaluation.', <div className="code-list"><div>sweep_lora.yaml　→</div><div>ChestX-ray v1　→　run-2</div><div>ckpt-18400　→　eval · latest</div><div>model v2</div></div>],
-    ['State & persistence', 'Long-running jobs checkpoint and resume after failure or preemption.', <div className="code-list"><div>run-2 / training</div><div>checkpoint　ckpt-18400</div><div><span className="state-dot" />ckpt saved / preempted</div><div>resume next</div></div>],
+    ['Compute provisioning', "Training and serving have different GPU and memory profiles. Resources are allocated to the job, not to a person's console tab.", <div className="compute-matrix">{[['train · run-2', 8, 'primary'], ['eval · regression', 3, 'muted'], ['serve · canary', 2, 'soft'], ['idle', 0, 'idle']].map(([label, count, tone]) => <div className="compute-row" key={label as string}><span>{label}</span><div className="compute-cells">{Array.from({ length: 8 }, (_, i) => <i key={i} className={i < Number(count) ? `is-${tone}` : ''} />)}</div></div>)}</div>],
+    ['Scheduling', 'Jobs run when their dependencies are satisfied.', <div className="code-list schedule-list"><div><span>data/dedupe</span><b className="schedule-done">done</b></div><div><span>train/run-2</span><b className="schedule-running">running</b></div><div><span>eval/regression</span><b>queued</b></div><div><span>serve/canary</span><b className="schedule-waiting">waits on gate</b></div></div>],
+    ['Artifacts & lineage', 'Every model version traces back to its config, data and evaluation.', <div className="lineage-list">{['sweep_lora.yaml', 'ChestX-ray v1', 'run-2', 'ckpt-18400', 'eval · latest', 'model v2'].map((item) => <span key={item}>{item}</span>)}</div>],
+    ['State & persistence', 'Long-running jobs checkpoint and resume after failure or preemption.', <div className="state-timeline"><div className="timeline-track"><i /><i /><i className="is-waiting" /><i /><i className="is-pending" /></div><div><span>ckpt saved</span><b>preempted · resume</b><span>next</span></div></div>],
     ['Permissions', 'Access to data, secrets and production is scoped and enforced.', <div className="code-list"><div>datasets/hospital　owner: rw · team: r</div><div>secrets/registry　service only</div><div>deploy/prod　approval required</div></div>],
-    ['Cost & operational visibility', 'Understand where compute goes across training, evaluation and serving, per project.', <div className="bars">{[['Training', '63%'], ['Evaluation', '24%'], ['Serving', '13%']].map(([n, w]) => <div key={n}><div className="barline"><span>{n} / share of compute</span><span>{w}</span></div><div className="bar"><i style={{ width: w }} /></div></div>)}</div>],
+    ['Cost & operational visibility', 'Understand where compute goes across training, evaluation and serving, per project.', <div className="bars">{[['Training', '63%'], ['Evaluation', '24%'], ['Serving', '13%']].map(([n, w]) => <div key={n}><div className="barline"><span>{n}</span><span>share of compute</span></div><div className="bar"><i style={{ width: w }} /></div></div>)}</div>],
   ];
-  return <section className="section" id="infrastructure" data-testid="section-infrastructure"><div className="wrap"><div className="section-head"><span>05</span> The infrastructure underneath</div><h2>Planning is half of it.<br />Execution is the rest.</h2><p className="body-copy" style={{ maxWidth: 670 }}>A plan is only useful if something can run it. Hyperparameter's technical direction includes the execution and orchestration layer itself, not a conversational interface placed on top of unrelated tools.</p><div className="infra-grid">{panels.map(([title, copy, diagram]) => <article className="infra-card" key={title}><span className="infra-label">Illustrative</span><h3>{title}</h3><p>{copy}</p>{diagram}</article>)}</div></div></section>;
+  return <section className="section infrastructure-section" id="infrastructure" data-testid="section-infrastructure"><div className="wrap">
+    <div className="infra-intro"><div><div className="section-head"><span>05</span> The infrastructure underneath</div><h2>Planning is half of it.<br /><span>Execution is the rest.</span></h2></div><div className="infra-intro-copy"><p>A plan is only useful if something can run it. Hyperparameter's technical direction includes the execution and orchestration layer itself, not a conversational interface placed on top of unrelated tools.</p><span className="infra-label">Illustrative</span></div></div>
+    <div className="infra-grid">{panels.map(([title, copy, diagram], index) => <article className={`infra-card infra-card-${index + 1}`} key={title}><h3><span className="infra-icon" aria-hidden="true">{['◉', '≡', '⌁', '◌', '◇', '◔'][index]}</span>{title}</h3><p>{copy}</p>{diagram}</article>)}</div>
+  </div></section>;
 }
 
 function Definition() {
@@ -133,7 +326,7 @@ function Definition() {
     ['A fine-tune-everything interface', "Many problems don't need training at all."],
     ['A bundle of disconnected ML tools', 'The value is in the connections between stages.'],
   ];
-  return <section className="section definition" id="definition" data-testid="section-definition"><div className="wrap"><div className="section-head"><span>06</span> Definition</div><div className="definition-layout"><div><h2>What it is.<br />What it isn't.</h2><p className="body-copy">An AI development and orchestration platform that connects the problem, approach, data, experiments, evaluation and deployment into one coherent process.</p></div><div className="definition-list">{statements.map(([title, copy]) => <div className="definition-item" key={title}><strong>{title}</strong><span>{copy}</span></div>)}</div></div></div></section>;
+  return <section className="section definition" id="definition" data-testid="section-definition"><div className="wrap"><div className="section-head"><span>06</span> Definition</div><div className="definition-layout"><div className="definition-copy"><h2>What it is.<br />What it isn't.</h2><div className="definition-summary"><p>An AI development and orchestration platform that connects the problem, approach, data, experiments, evaluation and deployment into one coherent process.</p></div></div><div className="definition-list">{statements.map(([title, copy]) => <div className="definition-item" key={title}><strong>{title}</strong><span>{copy}</span></div>)}</div></div></div></section>;
 }
 
 function ForWho() {
@@ -158,7 +351,7 @@ function FinalCTA() {
 }
 
 function App() {
-  return <div className="site" id="top"><Header /><main><section className="hero grid-bg" data-testid="section-hero"><div className="wrap"><div className="eyebrow reveal"><b>EARLY ACCESS</b><span>Human-in-the-loop AI engineering</span></div><h1>Describe the outcome.<span>Watch it get engineered.</span></h1><div className="agent-chip"><i />planner-agent <span>›</span> <strong>scoping the outcome</strong></div><p className="hero-copy">Hyperparameter's agents do the heavy lifting of building custom AI, from scoping and data to training, evals and deployment. Every plan, run and result is visible as it happens, and nothing ships until you sign off.</p><div className="hero-actions"><a className="pill-btn" href={formUrl} target="_blank" rel="noreferrer" data-testid="button-hero-waitlist">Join the waitlist <ArrowUpRight size={13} /></a><a className="secondary-btn" href="#workflow" data-testid="button-see-workflow">See how it works <ArrowDown size={13} /></a></div><div className="trust"><span><ShieldCheck size={12} />You approve every gate</span><span><RotateCw size={12} />Every run logged and reproducible</span><span><KeyRound size={12} />Your data, models and keys stay yours</span></div><DashboardVisual /></div></section><Ticker /><Problem /><Thesis /><Workflow /><Approach /><Infrastructure /><Definition /><ForWho /><WhereWeAre /><FAQ /></main><FinalCTA /></div>;
+  return <div className="site" id="top"><Header /><main><section className="hero grid-bg" data-testid="section-hero"><div className="wrap"><div className="eyebrow reveal"><b>EARLY ACCESS</b><span>Human-in-the-loop AI engineering</span></div><h1>Describe the outcome.<span>Watch it get engineered.</span></h1><HeroAgentStatus /><p className="hero-copy">Hyperparameter's agents do the heavy lifting of building custom AI, from scoping and data to training, evals and deployment. Every plan, run and result is visible as it happens, and nothing ships until you sign off.</p><div className="hero-actions"><a className="pill-btn" href={formUrl} target="_blank" rel="noreferrer" data-testid="button-hero-waitlist">Join the waitlist <ArrowUpRight size={13} /></a><a className="secondary-btn" href="#workflow" data-testid="button-see-workflow">See how it works <ArrowDown size={13} /></a></div><div className="trust"><span><ShieldCheck size={12} />You approve every gate</span><span><RotateCw size={12} />Every run logged and reproducible</span><span><KeyRound size={12} />Your data, models and keys stay yours</span></div><DashboardVisual /></div></section><Ticker /><Problem /><Thesis /><Workflow /><Approach /><Infrastructure /><Definition /><ForWho /><WhereWeAre /><FAQ /></main><FinalCTA /></div>;
 }
 
 export default App;
