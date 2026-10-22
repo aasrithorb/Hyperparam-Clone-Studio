@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Hyperparameter"
+description = "A reproduction of the Hyperparameter AI engineering website, with its product story, workflow walkthrough, approach selection, infrastructure details, FAQ, and waitlist link."
+version = "1.0.0"
+id = "artifacts/hyperparameter-site"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23609
+
+[services.development]
+run = "pnpm --filter @workspace/hyperparameter-site run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/hyperparameter-site", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/hyperparameter-site/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23609"
+BASE_PATH = "/"
