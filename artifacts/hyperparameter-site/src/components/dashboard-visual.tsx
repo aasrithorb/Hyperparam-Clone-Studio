@@ -17,7 +17,7 @@ export function DashboardVisual() {
           observer.disconnect();
         }
       },
-      { rootMargin: '100px 0px', threshold: 0.12 },
+      { rootMargin: '0px', threshold: 0.32 },
     );
 
     observer.observe(element);
@@ -35,6 +35,8 @@ export function DashboardVisual() {
         <img
           className="workspace-mockup"
           src={dashboardMockup}
+          width={1024}
+          height={683}
           alt="Hyperparameter's AI training dashboard shown on a MacBook Pro"
           data-testid="img-dashboard-product"
         />

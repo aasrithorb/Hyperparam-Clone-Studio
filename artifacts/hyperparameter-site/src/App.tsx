@@ -183,7 +183,7 @@ function Workflow() {
 
     const timer = window.setInterval(() => {
       setActive((current) => (current + 1) % stages.length);
-    }, 4200);
+    }, 2800);
     return () => window.clearInterval(timer);
   }, [sectionVisible, paused]);
 
@@ -197,11 +197,15 @@ function Workflow() {
       data-testid="section-workflow"
     >
       <div className="wrap">
-        <div className="section-head"><span>03</span> How it's intended to work</div>
-        <h2 className="workflow-title">One outcome. An agent on every stage.</h2>
-        <p className="workflow-sub">
-          Follow one example project, the Medical Vision Model from the workspace above, through each stage Hyperparameter is being designed to coordinate.
-        </p>
+        <div className="workflow-intro">
+          <div>
+            <div className="section-head"><span>03</span> How it's intended to work</div>
+            <h2 className="workflow-title">One outcome. An agent on every stage.</h2>
+          </div>
+          <p className="workflow-sub">
+            Follow one example project, the Medical Vision Model from the workspace above, through each stage Hyperparameter is being designed to coordinate.
+          </p>
+        </div>
         <div
           className="workflow-layout"
           onMouseEnter={() => setPointerInside(true)}
@@ -257,7 +261,7 @@ function Workflow() {
             </div>
             <div className="objective-form">
               <label className="field-label" htmlFor="workflow-objective">{panel.title}</label>
-              <textarea id="workflow-objective" className="objective-input" rows={2} readOnly value={panel.prompt} />
+              <textarea id="workflow-objective" className="objective-input" rows={1} readOnly value={panel.prompt} />
               <div className="constraint-list">
                 {panel.constraints.map((constraint) => <span key={constraint}>{constraint}</span>)}
               </div>
@@ -293,7 +297,7 @@ function Approach() {
     ...(hoveredPrompt === null ? [] : [approachForPrompt[hoveredPrompt]]),
   ]);
 
-  return <section className="section approach" id="approach" data-testid="section-approach"><div className="wrap"><div className="section-head"><span>04</span> Approach selection</div><h2>Not every problem needs<br />a new model.</h2><p className="body-copy" style={{ maxWidth: 670 }}>The right approach depends on the objective, the data you have, quality targets, latency, cost, privacy and where it has to run. Hyperparameter is being built to help navigate that decision, then coordinate whichever path it leads to.</p>
+  return <section className="section approach" id="approach" data-testid="section-approach"><div className="wrap"><div className="approach-intro"><div><div className="section-head"><span>04</span> Approach selection</div><h2>Not every problem<br />needs a new model.</h2></div><p className="body-copy">The right approach depends on the objective, the data you have, quality targets, latency, cost, privacy and where it has to run. Hyperparameter is being built to help navigate that decision, then coordinate whichever path it leads to.</p></div>
     <div className="approach-layout"><div className="prompt-panel"><div className="objective-top"><strong>What's true of your problem?</strong><span className="chip">Illustrative</span></div><div className="prompt-list" role="group" aria-label="Conditions that shape the AI approach">{prompts.map((p, i) => {
       const selected = selectedPrompts.includes(i);
       return <button type="button" className={`prompt${selected ? ' is-selected' : ''}`} key={p} aria-pressed={selected} onClick={() => setSelectedPrompts((current) => selected ? current.filter((index) => index !== i) : [...current, i])} onMouseEnter={() => setHoveredPrompt(i)} onMouseLeave={() => setHoveredPrompt(null)} data-testid={`approach-prompt-${i}`}><span className="prompt-check" aria-hidden="true">{selected ? '✓' : ''}</span><span>{p}</span></button>;
@@ -351,6 +355,25 @@ function FinalCTA() {
 }
 
 function App() {
+  useEffect(() => {
+    const targetId = decodeURIComponent(window.location.hash.slice(1));
+    if (!targetId) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(targetId);
+      if (target) {
+        const root = document.documentElement;
+        const previousBehavior = root.style.scrollBehavior;
+        root.style.scrollBehavior = 'auto';
+        window.scrollTo(0, target.getBoundingClientRect().top + window.scrollY - 54);
+        window.requestAnimationFrame(() => {
+          root.style.scrollBehavior = previousBehavior;
+        });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   return <div className="site" id="top"><Header /><main><section className="hero grid-bg" data-testid="section-hero"><div className="wrap"><div className="eyebrow reveal"><b>EARLY ACCESS</b><span>Human-in-the-loop AI engineering</span></div><h1>Describe the outcome.<span>Watch it get engineered.</span></h1><HeroAgentStatus /><p className="hero-copy">Hyperparameter's agents do the heavy lifting of building custom AI, from scoping and data to training, evals and deployment. Every plan, run and result is visible as it happens, and nothing ships until you sign off.</p><div className="hero-actions"><a className="pill-btn" href={formUrl} target="_blank" rel="noreferrer" data-testid="button-hero-waitlist">Join the waitlist <ArrowUpRight size={13} /></a><a className="secondary-btn" href="#workflow" data-testid="button-see-workflow">See how it works <ArrowDown size={13} /></a></div><div className="trust"><span><ShieldCheck size={12} />You approve every gate</span><span><RotateCw size={12} />Every run logged and reproducible</span><span><KeyRound size={12} />Your data, models and keys stay yours</span></div><DashboardVisual /></div></section><Ticker /><Problem /><Thesis /><Workflow /><Approach /><Infrastructure /><Definition /><ForWho /><WhereWeAre /><FAQ /></main><FinalCTA /></div>;
 }
 
