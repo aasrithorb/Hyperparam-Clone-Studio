@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hyperparam-clone-studio",
+  "compatibility_date": "2026-11-13",
+  "assets": {
+    "directory": "./artifacts/hyperparameter-site/dist/public",
+    "not_found_handling": "single-page-application"
+  }
+}

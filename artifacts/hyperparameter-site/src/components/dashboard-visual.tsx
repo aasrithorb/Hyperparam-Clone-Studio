@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import dashboardMockup from '@assets/Hyperparameter_AI_Training_Dashboard_1792681183465.png';
+import dashboardMockup from '@assets/Hyperparameter_AI_Training_Dashboard_1792681183465.webp';
 
 export function DashboardVisual() {
   const visualRef = useRef<HTMLDivElement>(null);
